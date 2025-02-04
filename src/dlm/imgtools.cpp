@@ -1764,7 +1764,7 @@ namespace {
         IDL_INT check;
         IDL_INT chunktest;
         IDL_INT help;
-        UCHAR nthreads;
+        IDL_INT nthreads;
         IDL_INT padding;
         IDL_INT pinh_align;
         IDL_INT progress;
@@ -1804,7 +1804,7 @@ namespace {
         { (char*) "LIMIT",            IDL_TYP_FLOAT, 1, 0,                      0, (char*) IDL_KW_OFFSETOF2(SI_KW,limit) },
         { (char*) "LUN",              IDL_TYP_INT,   1, IDL_KW_ZERO,            0, (char*) IDL_KW_OFFSETOF2(SI_KW,lun) },
         { (char*) "NSUMMED",          IDL_TYP_UNDEF, 1, IDL_KW_OUT|IDL_KW_ZERO, 0, (char*) IDL_KW_OFFSETOF2(SI_KW,nsummed) },
-        { (char*) "NTHREADS",         IDL_TYP_BYTE,  1, 0,                      0, (char*) IDL_KW_OFFSETOF2(SI_KW,nthreads) },
+        { (char*) "NTHREADS",         IDL_TYP_INT,   1, 0,                      0, (char*) IDL_KW_OFFSETOF2(SI_KW,nthreads) },
         { (char*) "PADDING",          IDL_TYP_INT,   1, 0,                      0, (char*) IDL_KW_OFFSETOF2(SI_KW,padding) },
         { (char*) "PINHOLE_ALIGN",    IDL_TYP_INT,   1, IDL_KW_ZERO,            0, (char*) IDL_KW_OFFSETOF2(SI_KW,pinh_align) },
         { (char*) "PROGRESS",         IDL_TYP_INT,   1, IDL_KW_ZERO,            0, (char*) IDL_KW_OFFSETOF2(SI_KW,progress) },
@@ -1881,7 +1881,7 @@ IDL_VPTR sum_images( int argc, IDL_VPTR* argv, char* argk ) {
         kw.progress = 1;
     }
     
-    kw.nthreads = max<UCHAR>(1, min<UCHAR>(kw.nthreads, thread::hardware_concurrency()));
+    kw.nthreads = max<IDL_INT>(1, min<IDL_INT>(kw.nthreads, thread::hardware_concurrency()));
     kw.padding = max<IDL_INT>(0, min<IDL_INT>(kw.padding, 4096));   // prevent insane padding
     
     try {
@@ -2043,7 +2043,7 @@ IDL_VPTR sum_images( int argc, IDL_VPTR* argv, char* argk ) {
         if( kw.check ) {
             checked.reset( new double [ 2*nImages ] );
             checkedPtr = checked.get();
-            for( UCHAR t=0; t<kw.nthreads; ++t ) {      // calculate averages
+            for( IDL_INT t=0; t<kw.nthreads; ++t ) {      // calculate averages
                 threads.push_back( std::thread(
                     [&](){
                         size_t myImgIndex;
@@ -2183,7 +2183,7 @@ IDL_VPTR sum_images( int argc, IDL_VPTR* argv, char* argk ) {
         };
 
         threads.clear();
-        for( UCHAR t=0; t<kw.nthreads; ++t ) {
+        for( IDL_INT t=0; t<kw.nthreads; ++t ) {
             threads.push_back( std::thread(
                 [&](){
                     size_t myImgIndex;
@@ -2356,7 +2356,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
         kw.progress = 1;
     }
 
-    kw.nthreads = max<UCHAR>(1, min<UCHAR>(kw.nthreads, thread::hardware_concurrency()));
+    kw.nthreads = max<IDL_INT>(1, min<IDL_INT>(kw.nthreads, thread::hardware_concurrency()));
     kw.padding = max<IDL_INT>(0, min<IDL_INT>(kw.padding, 4096));   // prevent insane padding
 
     file::setErrorHandling( file::EH_THROW );   // we want to catch and manage errors here
