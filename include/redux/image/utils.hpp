@@ -437,7 +437,7 @@ namespace redux {
         }
 
         template <typename T, typename U>
-        void mozaic( boost::asio::io_service& service, size_t nThreads, T** img, size_t imgRows, size_t imgCols, const U*** patches, size_t nPatches,
+        void mozaic( boost::asio::io_context& ioContext, size_t nThreads, T** img, size_t imgRows, size_t imgCols, const U*** patches, size_t nPatches,
                      size_t pRows, size_t pCols, const int32_t* posY, const int32_t* posX, int32_t blend, int32_t margin, bool transpose=false ) {
 
             struct patch_info {
@@ -464,7 +464,7 @@ namespace redux {
             redux::util::ProgressWatch pw;
             pw.set( nPatches+nThreads );
             for( size_t i=0; i<nThreads; ++i ) {
-                service.post([&](){
+                boost::asio::post(ioContext, [&](){
                     double** tsum = redux::util::newArray<double>( imgRows, imgCols );
                     memset( *tsum, 0, nPixels*sizeof(double) );
                     double** timg = redux::util::newArray<double>( imgRows, imgCols );
@@ -505,14 +505,14 @@ namespace redux {
                      const int32_t* posY, const int32_t* posX, int32_t blend, int32_t margin, bool transpose=false ) {
 
             size_t nThreads = std::min<size_t>( nPatches, std::thread::hardware_concurrency() );
-            boost::asio::io_service service;
+            boost::asio::io_context ioContext;
             boost::thread_group pool;
             {
-                boost::asio::io_service::work workLoop(service);
+                auto workGuard = boost::asio::make_work_guard(ioContext);
                 for( size_t t = 0; t < nThreads; ++t ) {
-                    pool.create_thread( boost::bind(&boost::asio::io_service::run, &service) );
+                    pool.create_thread( boost::bind(&boost::asio::io_context::run, &ioContext) );
                 }
-                mozaic( service, nThreads, img, imgRows, imgCols, patches, nPatches, pRows, pCols, posY, posX, blend, margin, transpose );
+                mozaic( ioContext, nThreads, img, imgRows, imgCols, patches, nPatches, pRows, pCols, posY, posX, blend, margin, transpose );
             }
             pool.join_all();
             

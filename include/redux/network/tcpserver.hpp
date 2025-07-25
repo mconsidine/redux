@@ -46,8 +46,8 @@ namespace redux {
 
             std::map<TcpConnection::Ptr, Host::Ptr, redux::util::PtrCompare<TcpConnection>> connections;
             mutable std::mutex mtx;
-            boost::asio::io_service ioService;
-            std::shared_ptr<boost::asio::io_service::work> workLoop;
+            boost::asio::io_context ioContext;
+            std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> workGuard;
             tcp::acceptor acceptor;
             tcp::endpoint endpoint;
             TcpConnection::callback onConnected;

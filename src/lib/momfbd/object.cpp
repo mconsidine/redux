@@ -882,7 +882,7 @@ void Object::initObject( void ){
 }
 
 
-void Object::reInitialize( boost::asio::io_service& service, ProgressWatch& pw, bool doReset ) {
+void Object::reInitialize( boost::asio::io_context& ioc, ProgressWatch& pw, bool doReset ) {
     
     progWatch.clear();
     if( imgShifted ) {
@@ -890,7 +890,7 @@ void Object::reInitialize( boost::asio::io_service& service, ProgressWatch& pw, 
         if( doReset ) initPatch();
         for( const shared_ptr<Channel>& c: channels ) {
             for( const shared_ptr<SubImage>& im: c->getSubImages() ) {
-                service.post( [this,&pw,im,doReset](){
+                boost::asio::post( ioc, [this,&pw,im,doReset](){
                     //im->initialize(true);   // always re-calculate noise statistics
                     im->initialize( *this, doReset );
                     ++pw;
@@ -904,14 +904,14 @@ void Object::reInitialize( boost::asio::io_service& service, ProgressWatch& pw, 
 }
 
 
-void Object::loadData( boost::asio::io_service& service, Array<PatchData::Ptr>& patches ){
+void Object::loadData( boost::asio::io_context& ioc, Array<PatchData::Ptr>& patches ){
     
     startT = bpx::pos_infin;
     endT = bpx::neg_infin;
     
     progWatch.set( nImages( ) );
 
-    loadInit( service, patches );
+    loadInit( ioc, patches );
     progWatch.setTicker(nullptr );
 //     progWatch.setTicker([&](){
 //         LOG_WARN << "Object" << to_string(ID )<< ")::loadData( ) otick: " << progWatch.dump( )<< ende;
@@ -952,13 +952,13 @@ void Object::loadData( boost::asio::io_service& service, Array<PatchData::Ptr>& 
     } );
     
     for( shared_ptr<Channel>& ch: channels ){
-        ch->loadData( service, patches );
+        ch->loadData( ioc, patches );
     }
  
 }
 
 
-void Object::loadInit( boost::asio::io_service& service, Array<PatchData::Ptr>& patches ){
+void Object::loadInit( boost::asio::io_context& ioc, Array<PatchData::Ptr>& patches ){
     
     //if( initFile == "" )return;
     
@@ -1569,7 +1569,7 @@ void Object::writeMomfbd( const redux::util::Array<PatchData::Ptr>& patchesData 
 
 }
 
-void Object::writeResults( boost::asio::io_service& service, const redux::util::Array<PatchData::Ptr>& patches ){
+void Object::writeResults( boost::asio::io_context& ioc, const redux::util::Array<PatchData::Ptr>& patches ){
     
     progWatch.set( 1 );
     progWatch.setHandler([this](){
@@ -1578,15 +1578,15 @@ void Object::writeResults( boost::asio::io_service& service, const redux::util::
 
     if( myJob.outputFileType & FT_ANA ) {
         progWatch.increaseTarget( 1 );
-        service.post( std::bind( &Object::writeAna, this, std::ref( patches) ) );
+        boost::asio::post( ioc, std::bind( &Object::writeAna, this, std::ref( patches) ) );
     }
     if( myJob.outputFileType & FT_FITS ) {
         progWatch.increaseTarget( 1 );
-        service.post( std::bind( &Object::writeFits, this, std::ref( patches) ) );
+        boost::asio::post( ioc, std::bind( &Object::writeFits, this, std::ref( patches) ) );
     }
     if( myJob.outputFileType & FT_MOMFBD ){
         progWatch.increaseTarget(1 );
-        service.post( std::bind( &Object::writeMomfbd, this, std::ref(patches) ) );
+        boost::asio::post( ioc, std::bind( &Object::writeMomfbd, this, std::ref(patches) ) );
     }
     ++progWatch;
     

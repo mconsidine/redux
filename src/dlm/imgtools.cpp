@@ -714,12 +714,12 @@ IDL_VPTR img_align (int argc, IDL_VPTR* argv, char* argk) {
         auto fit_func = std::bind( findTransformECC, std::ref(imgByte1), std::ref(imgByte2), std::placeholders::_1,
             MOTION_HOMOGRAPHY, term_crit, imgByte );
         
-        boost::asio::io_service service;
+        boost::asio::io_context ioContext;
         boost::thread_group pool;
         std::mutex mtx;
         
         for ( size_t i=0; i<initializations.size(); ++i) {
-            service.post([&,i](){
+            boost::asio::post(ioContext, [&,i](){
                 try {
                     const Mat& init = initializations[i];
                     double correlation = fit_func( init );
@@ -732,7 +732,7 @@ IDL_VPTR img_align (int argc, IDL_VPTR* argv, char* argk) {
         }
         
         for(uint16_t t = 0; t < thread::hardware_concurrency(); ++t) {
-            pool.create_thread(boost::bind(&boost::asio::io_service::run, &service));
+            pool.create_thread(boost::bind(&boost::asio::io_context::run, &ioContext));
         }
         pool.join_all();
         
@@ -2516,14 +2516,14 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
         
         bool done(false);
         mutex mtx;
-        boost::asio::io_service ioService;
-        std::shared_ptr<boost::asio::io_service::work> workLoop( new boost::asio::io_service::work(ioService) );
+        boost::asio::io_context ioContext;
+        auto workGuard = boost::asio::make_work_guard(ioContext);
         boost::thread_group pool;
         for( uint16_t t=0; t < kw.nthreads; ++t ) {
             pool.create_thread( [&](){
                 while( !done ) {
                     try {
-                        ioService.run();
+                        ioContext.run();
                     } catch( exception& e ) {
                         cerr << "Exception in summing thread: " << e.what() << endl;
                     } catch( ... ) {
@@ -2539,7 +2539,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
             nTotalFrames = 0;
             progWatch.set( nFiles );
             for( auto& fn: existingFiles ) {
-                ioService.post([&,fn](){
+                boost::asio::post(ioContext, [&,fn](){
                     FileMeta::Ptr tmpMeta;
                     try {
                         tmpMeta = getMeta( fn );
@@ -2637,7 +2637,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
             
                 // for pinh_align we need the reference (first) image before the rest, so re-post other images until we get it.
                 if( kw.pinh_align && frameIndex && !refLoaded.load()  ) {
-                    ioService.post( std::bind(sumFunc,frameIndex,threadBuffer, frameOffset) );
+                    boost::asio::post(ioContext,  std::bind(sumFunc,frameIndex,threadBuffer, frameOffset) );
                     return;
                 }
                 
@@ -2773,7 +2773,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
             }
             string fn = existingFiles[i];
             progWatch.increaseTarget( 1 );
-            ioService.post([&,i,fn, frameCount](){
+            boost::asio::post(ioContext, [&,i,fn, frameCount](){
                 shared_ptr<char> threadBuffer( new char[ maxFileSize ], []( char*& p ) { delete[] p; } );
                 FileMeta::Ptr threadMeta;
                 try {
@@ -2813,7 +2813,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
                     } else {
                         for( size_t j=0; j<nFrames[i]; ++j ) {
                             sumFunc( frameCount+j, threadBuffer, bufferOffset );
-                            //ioService.post( std::bind(sumFunc,frameCount+j,threadBuffer, bufferOffset) );
+                            //boost::asio::post(ioContext,  std::bind(sumFunc,frameCount+j,threadBuffer, bufferOffset) );
                             bufferOffset += frameSize;
                         }
                     }
@@ -2891,7 +2891,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
                     }
                     if( shouldSubtract ) {
                         progWatch.increaseTarget(1);
-                        ioService.post([&,i,fn, frameCount](){
+                        boost::asio::post(ioContext, [&,i,fn, frameCount](){
                             shared_ptr<char> threadBuffer( new char[ maxFileSize ], []( char*& p ) { delete[] p; } );
                             FileMeta::Ptr threadMeta;
                             try {
@@ -2901,7 +2901,7 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
                                     if( !isfinite(checkedPtr[frameCount+j]) || checkedPtr[frameCount+j] == 0 ) {
                                         if( checkedPtr[frameCount+j] == 0 ) {     // subtract discarded images
                                             progWatch.increaseTarget(1);
-                                            ioService.post( std::bind(sumFunc, frameCount+j, threadBuffer, bufferOffset) );
+                                            boost::asio::post(ioContext,  std::bind(sumFunc, frameCount+j, threadBuffer, bufferOffset) );
                                         }
                                         --nSummed;
                                         frameNumbers[frameCount+j] *= -1;
@@ -2930,8 +2930,8 @@ IDL_VPTR sum_files( int argc, IDL_VPTR* argv, char* argk ) {
         }
         
         done = true;
-        workLoop.reset();
-        ioService.stop();
+        workGuard.reset();
+        ioContext.stop();
         pool.join_all();
 
         if( kw.pinh_align ) {

@@ -91,14 +91,14 @@ namespace redux {
             
             typedef std::shared_ptr<Solver> Ptr;
             
-            Solver(redux::momfbd::MomfbdJob&, boost::asio::io_service&, uint16_t nThreads);
+            Solver(redux::momfbd::MomfbdJob&, boost::asio::io_context&, uint16_t nThreads);
             ~Solver();
             
             void init(void);
             
-            void getMetric(boost::asio::io_service&, uint8_t nThreads);
+            void getMetric(boost::asio::io_context&, uint8_t nThreads);
             void reset(void);
-            void dumpImages( boost::asio::io_service&, std::string );
+            void dumpImages( boost::asio::io_context&, std::string );
             
             double my_f( const gsl_vector*, void* );
             void my_df( const gsl_vector*, void*, gsl_vector* );
@@ -144,7 +144,7 @@ namespace redux {
             logging::Logger& logger;
             std::map<uint32_t,std::shared_ptr<WaveFront>> wavefronts;
             const std::vector<std::shared_ptr<Object>>& objects;
-            boost::asio::io_service& service;
+            boost::asio::io_context& ioContext;
             
             redux::util::Array<double> window, noiseWindow;
             redux::util::Array<double> tmpPhi, tmpPhiGrad;

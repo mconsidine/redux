@@ -493,8 +493,8 @@ void MomfbdJob::cleanup(void) {
     auto lock = getLock();
     
     pool.interrupt_all();
-    workLoop.reset();
-    ioService.stop();
+    workGuard.reset();
+    ioContext.stop();
     pool.join_all();
     
     progWatch.clear();
@@ -548,9 +548,9 @@ bool MomfbdJob::run( WorkInProgress::Ptr wip, uint16_t maxThreads ) {
     uint16_t patchStep = 0;
     uint16_t nThreads = std::min( maxThreads, info.maxThreads );
     
-    if( !workLoop ) {
-        ioService.reset();
-        workLoop.reset( new boost::asio::io_service::work(ioService) );
+    if( !workGuard ) {
+        ioContext.restart();
+        workGuard.emplace(ioContext.get_executor());
         addThread(maxThreads);
     }
 
@@ -573,7 +573,7 @@ bool MomfbdJob::run( WorkInProgress::Ptr wip, uint16_t maxThreads ) {
                 globalData.reset( new GlobalData(*this) );
             }
 
-            if( !solver ) solver.reset( new Solver(*this, ioService, maxThreads) );
+            if( !solver ) solver.reset( new Solver(*this, ioContext, maxThreads) );
             for( auto& part : wip->parts ) {      // momfbd jobs will only get 1 part at a time, this is just to keep things generic.
                 logger.setContext( "job "+to_string(info.id)+":"+to_string(part->id) );
                 // Run main processing
@@ -777,7 +777,7 @@ void MomfbdJob::preProcess( void ) {
             throw std::logic_error("The clipped images have different sizes for the different objects, please verify the ALIGN_CLIP values.");
         }
     }
-    //ioService.post( std::bind( &MomfbdJob::initCache, this) );    // TBD: should cache initialization be parallelized?
+    //boost::asio::post(ioContext,  std::bind( &MomfbdJob::initCache, this) );    // TBD: should cache initialization be parallelized?
 
     progWatch.setTarget( nTotalImages );
     progWatch.setHandler( std::bind( &MomfbdJob::unloadCalib, this ) );
@@ -825,7 +825,7 @@ void MomfbdJob::preProcess( void ) {
             bfs::create_directories( tmpP );
         }
 
-        ioService.post( [this](){
+        boost::asio::post(ioContext,  [this](){
             THREAD_MARK
             initCache();
             THREAD_MARK
@@ -837,11 +837,11 @@ void MomfbdJob::preProcess( void ) {
 
     THREAD_MARK
     for( shared_ptr<Object>& obj : objects ) {
-        obj->loadData( ioService, patches );
+        obj->loadData( ioContext, patches );
     }
     
     THREAD_MARK
-    waveFronts.loadInit( ioService, patches );
+    waveFronts.loadInit( ioContext, patches );
     
 }
 
@@ -1082,7 +1082,7 @@ void MomfbdJob::writeOutput( void ) {
     
     THREAD_MARK
     for( auto obj : objects ) {
-        ioService.post( [this,obj](){
+        boost::asio::post(ioContext,  [this,obj](){
             THREAD_MARK
             obj->writeResults( patches );
             THREAD_UNMARK
@@ -1090,7 +1090,7 @@ void MomfbdJob::writeOutput( void ) {
     }
     THREAD_MARK
     for( auto tobj : trace_objects ) {
-        ioService.post( [this,tobj](){
+        boost::asio::post(ioContext,  [this,tobj](){
             THREAD_MARK
             tobj->writeResults( patches );
             THREAD_UNMARK
@@ -1104,7 +1104,7 @@ void MomfbdJob::writeOutput( void ) {
 void MomfbdJob::loadPatchResults( void ) {
 
     for( auto& patch: patches ) {
-        ioService.post( [this,patch](){
+        boost::asio::post(ioContext,  [this,patch](){
             THREAD_MARK
             ++progWatch;
             THREAD_UNMARK

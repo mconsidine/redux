@@ -42,9 +42,9 @@ namespace {
 }
 
 
-TcpConnection::TcpConnection( ba::io_service& io_service )
-    : activityCallback( nullptr ), urgentCallback( nullptr ), errorCallback( nullptr ), mySocket( io_service ),
-    myService( io_service ), swapEndian_(false), urgentData(0), urgentActive(false), id( getID() ) {
+TcpConnection::TcpConnection( ba::io_context& ioc )
+    : activityCallback( nullptr ), urgentCallback( nullptr ), errorCallback( nullptr ), mySocket( ioc ),
+    ioContext( ioc ), swapEndian_(false), urgentData(0), urgentActive(false), id( getID() ) {
 #ifdef DBG_NET_
     LOG_DEBUG << "Constructing TcpConnection: (" << hexString(this) << ")  ID: " << id << "/" << idCount() << ende;
 #endif
@@ -159,29 +159,29 @@ void TcpConnection::writeline( const string& line ) {
 }
 
 
-void TcpConnection::connect( string host, string service ) {
-    
-    if( host == "" ) host = "localhost";
+void TcpConnection::connect(std::string host, std::string service) {
+
+    if (host.empty()) host = "localhost";
 
     try {
-        ba::ip::tcp::resolver::query query( host, service );
-        ba::ip::tcp::resolver resolver( myService );
-        ba::ip::tcp::resolver::iterator destination = resolver.resolve( query );
-        ba::ip::tcp::resolver::iterator end ;
-        ba::ip::tcp::endpoint endpoint;
+        ba::ip::tcp::resolver resolver(ioContext);
 
-        while( destination != end ) {
+        // Modern resolve: returns a range of endpoints
+        auto results = resolver.resolve(host, service);
+
+        for (const auto& entry : results) {
             try {
-                mySocket.connect( *destination++ );
-            } catch ( const boost::system::system_error& ) {
+                mySocket.connect(entry.endpoint());
+            } catch (const boost::system::system_error&) {
                 mySocket.close();
             }
-            if( mySocket.is_open() ) return;
+
+            if (mySocket.is_open()) return;
         }
-    } catch ( ... ) {
-        // TODO 
+    } catch (...) {
+        // TODO: Handle error
     }
-    
+
     close();
 
 }

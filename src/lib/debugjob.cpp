@@ -265,15 +265,15 @@ bool DebugJob::run( WorkInProgress::Ptr wip, uint16_t maxThreads ) {
         preProcess();                           // preprocess on master, split job in parts
     }
     else if( step == JSTEP_RUNNING || step == JSTEP_QUEUED ) {          // main processing
-        ioService.reset();
+        ioContext.restart();
         for( auto & part : wip->parts ) {
-            ioService.post( boost::bind( &DebugJob::runMain, this, boost::ref( part ) ) );
+            boost::asio::post(ioContext,  boost::bind( &DebugJob::runMain, this, boost::ref( part ) ) );
         }
         
         boost::thread_group pool;
         size_t nThreads = std::min( maxThreads, info.maxThreads);
         for( size_t t = 0; t < nThreads; ++t ) {
-            pool.create_thread( boost::bind( &boost::asio::io_service::run, &ioService ) );
+            pool.create_thread( boost::bind( &boost::asio::io_context::run, &ioContext ) );
         }
 
         LOG_DEBUG << "DebugJob::run ThreadCount = "<<(int)pool.size() << ende;

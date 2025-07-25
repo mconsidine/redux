@@ -309,7 +309,7 @@ void ReduxWidget::save( void ) {
 
 void ReduxWidget::tryConnection( void ) {
 
-    auto conn = TcpConnection::newPtr( ioservice );
+    auto conn = TcpConnection::newPtr( ioContext );
     conn->connect( masterName->text().toStdString(), to_string( masterPort->value() ) );
 
     if( *conn ) {

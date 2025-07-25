@@ -34,4 +34,9 @@ if(Boost_VERSION VERSION_GREATER 100)
     set(Boost_VERSION "${lb_major}.${lb_minor}.${lb_patch}" CACHE STRING "Version" FORCE)
 endif()
 
+# Check if Boost version is less than 1.66.0
+if(Boost_VERSION VERSION_LESS "1.66.0")
+    message(FATAL_ERROR "Boost version ${Boost_VERSION} is too old. Minimum required version is 1.66.0.")
+endif()
+
 appendPaths()

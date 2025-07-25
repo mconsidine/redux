@@ -65,7 +65,7 @@ namespace redux {
 
         private:
 
-            boost::asio::io_service ioservice;
+            boost::asio::io_context ioContext;
             Host::HostInfo myInfo;
             
             unsigned int activeHost, activeJob;

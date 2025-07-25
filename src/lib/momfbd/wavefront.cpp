@@ -148,7 +148,7 @@ void WaveFronts::getStorage( PatchData& pData ) {
 }
 
 
-void WaveFronts::loadInit( boost::asio::io_service& service, Array<PatchData::Ptr>& patches ) {
+void WaveFronts::loadInit( boost::asio::io_context& ioContext, Array<PatchData::Ptr>& patches ) {
 
     if( !(myJob.runFlags&RF_NOSWAP) ) {    // unless swap is deactivated for this job
         cacheFile = myJob.cachePath + "wavefronts";
@@ -157,10 +157,10 @@ void WaveFronts::loadInit( boost::asio::io_service& service, Array<PatchData::Pt
     bool hasInit(false);
     if( hasInit ) {
         maybeInitializeStorage();
-        //loadInit( service, patches );
+        //loadInit( ioContext, patches );
         for( unsigned int y=0; y<patches.dimSize(0); ++y ) {
             for( unsigned int x=0; x<patches.dimSize(1); ++x ) {
-                service.post( std::bind( &WaveFronts::getStorage, this, std::ref(*(patches(y,x).get())) ) );
+                boost::asio::post(ioContext,  std::bind( &WaveFronts::getStorage, this, std::ref(*(patches(y,x).get())) ) );
             }
         }
     }

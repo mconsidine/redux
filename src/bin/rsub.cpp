@@ -338,25 +338,19 @@ int main (int argc, char *argv[]) {
             return EXIT_SUCCESS;
         }
         
-        boost::asio::io_service ioservice;
-        auto conn = TcpConnection::newPtr(ioservice);
+        boost::asio::io_context ioContext;
+        auto conn = TcpConnection::newPtr(ioContext);
         conn->connect( vm["master"].as<string>(), vm["port"].as<string>() );
 
         if( conn->socket().is_open() ) {
             std::vector<std::shared_ptr<std::thread> > threads;
             for ( int i=0; i<5; ++i) {
-                shared_ptr<thread> t( new thread( boost::bind( &boost::asio::io_service::run, &ioservice ) ) );
+                shared_ptr<thread> t( new thread( boost::bind( &boost::asio::io_context::run, &ioContext ) ) );
                 threads.push_back( t );
             }
             int priority = vm["priority"].as<int>();
             shared_ptr<thread> t( new thread( boost::bind( uploadJobs, conn, jobs, priority, std::ref(logger)) ) );
             threads.push_back( t );
-            //thread t( boost::bind( &boost::asio::io_service::run, &ioservice ) );
-            //thread tt( boost::bind( &boost::asio::io_service::run, &ioservice ) );
-            //uploadJobs(conn, jobs, logger);
-            //ioservice.run();
-            //t.join();
-            //tt.join();
             for( auto & it : threads ) {
                 it->join();
             }

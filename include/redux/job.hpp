@@ -34,7 +34,7 @@ namespace redux {
      *  @{
      */
     
-    void runThreadsAndWait(boost::asio::io_service& service, uint16_t nThreads );
+    void runThreadsAndWait(boost::asio::io_context& ioContext, uint16_t nThreads );
     
     class job_error: public std::exception {
         
@@ -234,8 +234,8 @@ namespace redux {
         std::string cachePath;
         redux::logging::Logger logger;
         
-        boost::asio::io_service ioService;
-        std::shared_ptr<boost::asio::io_service::work> workLoop;
+        boost::asio::io_context ioContext;
+        std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> workGuard;
         boost::thread_group pool;
         
         friend class Daemon;

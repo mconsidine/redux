@@ -17,7 +17,7 @@ namespace {
 }
 
 
-TcpServer::TcpServer( uint16_t port, uint16_t threads ) : ioService(), acceptor( ioService ), endpoint( tcp::v4(), port ),
+TcpServer::TcpServer( uint16_t port, uint16_t threads ) : ioContext(), acceptor( ioContext ), endpoint( tcp::v4(), port ),
                 onConnected(nullptr), minThreads(threads), nThreads_(0), nConnections(0), running(false), do_handshake(true), do_auth(false) {
         
     start();
@@ -34,7 +34,7 @@ TcpServer::~TcpServer() {
 
 void TcpServer::accept(void) {
 
-    TcpConnection::Ptr connection = TcpConnection::newPtr( ioService );
+    TcpConnection::Ptr connection = TcpConnection::newPtr( ioContext );
     acceptor.async_accept( connection->socket(), boost::bind( &TcpServer::onAccept, this, connection, boost::asio::placeholders::error ) );
     
 }
@@ -47,8 +47,8 @@ void TcpServer::start(void) {
             stop();
         }
         running = true;
-        ioService.reset();
-        workLoop.reset( new boost::asio::io_service::work(ioService) );
+        ioContext.restart();
+        workGuard.emplace(ioContext.get_executor());
         addThread( minThreads );
         acceptor.open(endpoint.protocol());
         acceptor.set_option(tcp::acceptor::reuse_address(true));
@@ -77,8 +77,8 @@ void TcpServer::stop(void) {
     
     if( running ) {
         running = false;
-        workLoop.reset();
-        ioService.stop();
+        workGuard.reset();
+        ioContext.stop();
         acceptor.close();
         pool.interrupt_all();
         pool.join_all();
@@ -128,7 +128,7 @@ void TcpServer::addThread( uint16_t n ) {
 void TcpServer::delThread( uint16_t n ) {
     
     while( n-- ) {
-        ioService.post( [](){ throw Application::ThreadExit(); } );
+        boost::asio::post(ioContext,  [](){ throw Application::ThreadExit(); } );
     }
     
 }
@@ -294,7 +294,7 @@ void TcpServer::threadLoop( void ) {
     while( running ) {
         try {
             boost::this_thread::interruption_point();
-            ioService.run();
+            ioContext.run();
         } catch( const Application::ThreadExit& ) {
             break;
         } catch( const boost::thread_interrupted& ) {

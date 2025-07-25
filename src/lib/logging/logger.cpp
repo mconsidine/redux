@@ -237,7 +237,7 @@ LogOutput::Ptr Logger::addFile( const std::string &filename, uint8_t m, bool rep
 }
 
 
-LogOutput::Ptr Logger::addNetwork( boost::asio::io_service& service, const Host::Ptr host, uint32_t id, uint8_t m, unsigned int flushPeriod ) {
+LogOutput::Ptr Logger::addNetwork( boost::asio::io_context& ioContext, const Host::Ptr host, uint32_t id, uint8_t m, unsigned int flushPeriod ) {
     
     LogOutput::Ptr ret;
     if( host->info.connectName.empty() || !host->info.connectPort ) {
@@ -254,7 +254,7 @@ LogOutput::Ptr Logger::addNetwork( boost::asio::io_service& service, const Host:
         unique_lock<mutex> lock( outputMutex );
         OutputMap::iterator it = outputs.find( name );
         if( it != outputs.end() ) return ret;
-        ret.reset( new LogToNetwork( service, host, id, m, flushPeriod ) );
+        ret.reset( new LogToNetwork( ioContext, host, id, m, flushPeriod ) );
         outputs.insert(make_pair( name, ret ));
     } catch ( std::exception& e ) {
         getItem(LOG_MASK_ERROR) << "Logger::addNetwork exception: " << e.what() << ende;

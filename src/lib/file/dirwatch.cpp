@@ -8,7 +8,7 @@ using namespace redux::file;
 using namespace std;
 
 
-DirWatch::DirWatch() : fd_( init() ), stream_descriptor_( service_, fd_ ), work_(),
+DirWatch::DirWatch() : fd_( init() ), stream_descriptor_( ioContext, fd_ ), work_(),
         running_(false) {
 
     start();
@@ -16,7 +16,7 @@ DirWatch::DirWatch() : fd_( init() ), stream_descriptor_( service_, fd_ ), work_
 }
 
 
-DirWatch::DirWatch( const std::string &dirname, uint32_t mask ) : fd_( init() ), stream_descriptor_( service_, fd_ ), work_(),
+DirWatch::DirWatch( const std::string &dirname, uint32_t mask ) : fd_( init() ), stream_descriptor_( ioContext, fd_ ), work_(),
         running_(false) {
             
     add_directory( dirname, mask );
@@ -27,11 +27,11 @@ DirWatch::DirWatch( const std::string &dirname, uint32_t mask ) : fd_( init() ),
 
 void DirWatch::start( void ) {
 
-    work_.reset( new boost::asio::io_service::work(service_) );
+    workGuard.emplace(ioContext.get_executor());
     begin_read();
     threads_.clear();
     for( int i = 0; i < 1; ++i ) {  // TODO multithreaded (use strand for reading/queueing)
-            threads_.push_back( thread( boost::bind( &boost::asio::io_service::run, &service_) ) );
+            threads_.push_back( thread( boost::bind( &boost::asio::io_context::run, &ioContext) ) );
     }
 
     running_ = true;

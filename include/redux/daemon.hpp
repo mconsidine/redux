@@ -134,7 +134,7 @@ namespace redux {
             network::Host::Ptr host;
         } myMaster;
         
-        boost::asio::io_service ioService;
+        boost::asio::io_context ioContext;
         boost::thread_group pool;
         boost::asio::deadline_timer timer;
         std::unique_ptr<network::TcpServer> server;

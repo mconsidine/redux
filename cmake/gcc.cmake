@@ -4,14 +4,11 @@
 message(STATUS "Loading gcc-specific configuration. (${CMAKE_CURRENT_LIST_FILE})")
 
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-if (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7)
-    message(STATUS "C++14 activated.")
-    add_definitions("-std=gnu++14")
-elseif(GCC_VERSION VERSION_GREATER 4.3 OR GCC_VERSION VERSION_EQUAL 4.3)
-    message(STATUS "C++0x activated. If you get any errors, update to a compiler which fully supports C++14")
-    add_definitions("-std=gnu++0x")
+if (GCC_VERSION VERSION_GREATER 7.0 )
+    message(STATUS "C++17 activated.")
+    add_definitions("-std=gnu++17")
 else ()
-    message(FATAL_ERROR "C++11 needed. Therefore a gcc compiler with a version higher than 4.3 is needed.")   
+    message(FATAL_ERROR "C++17 needed. Therefore a gcc compiler with a version higher than 7.0 is needed.")
 endif()
 
 if( RDX_TRACE )

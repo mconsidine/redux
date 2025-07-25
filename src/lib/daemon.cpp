@@ -52,7 +52,7 @@ namespace {
 
 Daemon::Daemon( po::variables_map& vm ) : Application( vm, LOOP ), params( vm ), jobCounter( 1 ), nQueuedJobs( 0 ),
     hostTimeout(RDX_HOST_TIMEOUT), inTransfers(-1), outTransfers(-1), myInfo(Host::myInfo()),
-    max_local(5), max_remote(50), timer( ioService ), worker( *this ) {
+    max_local(5), max_remote(50), timer( ioContext ), worker( *this ) {
 
     file::setErrorHandling( file::EH_THROW );   // we want to catch and print messages to the log.
 
@@ -144,7 +144,7 @@ void Daemon::reset( void ) {
             myMaster.conn->socket().close();
             myInfo.info.peerType &= ~Host::TP_WORKER;
         }
-        ioService.stop();
+        ioContext.stop();
         pool.interrupt_all();
     }).detach();
     
@@ -163,7 +163,7 @@ void Daemon::stop( void ) {
         myMaster.conn->socket().close();
         myInfo.info.peerType &= ~Host::TP_WORKER;
     }
-    ioService.stop();
+    ioContext.stop();
     pool.interrupt_all();
     
 }
@@ -190,14 +190,14 @@ void Daemon::maintenance( void ) {
     {
         lock_guard<mutex> qlock( wip_lqueue_mtx );
         if( !wip_localqueue.empty() || (elapsed > boost::posix_time::minutes( 5 )) ) {  // kick the corpse every now and then.
-            ioService.post( std::bind( &Worker::start, std::ref(worker) ));
+            boost::asio::post(ioContext, std::bind( &Worker::start, std::ref(worker) ));
         }
     }
     {
         lock_guard<mutex> qlock( wip_queue_mtx );
         size_t nQ = std::min<size_t>( wip_queue.size(), outTransfers.count() );
         if( nQ ) {
-            ioService.post( std::bind( &Daemon::pokeSlaves, this, nQ ));
+            boost::asio::post(ioContext,  std::bind( &Daemon::pokeSlaves, this, nQ ));
         }
     }
     
@@ -372,7 +372,7 @@ bool Daemon::workerInit( void ) {
         connect( myMaster.host->info, logConn );
 
         int remoteLogFlushPeriod = 5;       // TODO make this a config setting.
-        logger.addNetwork( ioService, myMaster.host, 0, Logger::getDefaultMask(), remoteLogFlushPeriod );
+        logger.addNetwork( ioContext, myMaster.host, 0, Logger::getDefaultMask(), remoteLogFlushPeriod );
         logger.setContext( myInfo.info.name+":"+to_string(myInfo.info.pid) );
         logger.setFlushPeriod( remoteLogFlushPeriod );
 
@@ -393,7 +393,7 @@ void Daemon::connect( network::Host::HostInfo& host, network::TcpConnection::Ptr
     }
     
     if( !conn ) {
-        conn = TcpConnection::newPtr( ioService );
+        conn = TcpConnection::newPtr( ioContext );
     }
     
     try {
@@ -731,7 +731,7 @@ void Daemon::failedWIP( WorkInProgress::Ptr wip ) {
             job->failWork( wip );
             for( auto& part: wip->parts ) {
                 if( part ) {
-                    ioService.post( [part](){
+                    boost::asio::post(ioContext,  [part](){
                         part->cacheLoad();
                         part->cacheStore(true);
                     });
@@ -1343,7 +1343,7 @@ void Daemon::interactiveCB( TcpConnection::Ptr conn ) {
                         replyCmd = CMD_DISCONNECT;
                     }
                 } else if(cmdStr == "segfault") {
-                    ioService.post( [](){ std::this_thread::sleep_for (std::chrono::seconds(1));  // delay for reply to be sent back
+                    boost::asio::post(ioContext,  [](){ std::this_thread::sleep_for (std::chrono::seconds(1));  // delay for reply to be sent back
                                           *(int*)(8) = 0; } );
                 } else if( cmdStr == "iothreads" ) {
                     string argStr = popword(line);
@@ -1583,7 +1583,7 @@ void Daemon::putParts( TcpConnection::Ptr conn ) {
             WorkInProgress::Ptr wip = getWIP( host );
             msg += "   " + wip->print();
             //std::thread([this,wip,buf,endian,msg](){
-            ioService.post([this,wip,buf,endian,msg](){
+            boost::asio::post(ioContext, [this,wip,buf,endian,msg](){
             THREAD_MARK
                 THREAD_MARK
                 WorkInProgress::Ptr tmpwip = getIdleWIP();
@@ -1809,7 +1809,7 @@ void Daemon::addThread( uint16_t n ) {
 void Daemon::delThread( uint16_t n ) {
     
     while( n-- ) {
-        ioService.post( [](){ throw Application::ThreadExit(); } );
+        boost::asio::post(ioContext,  [](){ throw Application::ThreadExit(); } );
     }
 
 }
@@ -1838,7 +1838,7 @@ void Daemon::threadLoop( void ) {
         try {
             THREAD_UNMARK
             boost::this_thread::interruption_point();
-            ioService.run();
+            ioContext.run();
         } catch( const ThreadExit& e ) {
             break;
         } catch( job_error& e ) {

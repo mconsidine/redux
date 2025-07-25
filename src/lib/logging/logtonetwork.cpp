@@ -8,8 +8,8 @@ using namespace redux::util;
 using namespace std;
 
 
-LogToNetwork::LogToNetwork( boost::asio::io_service& s, const network::Host::Ptr& h, uint32_t i, uint8_t m, unsigned int flushPeriod)
-    : LogOutput(m,flushPeriod), service(s), host(h), id(i) {
+LogToNetwork::LogToNetwork( boost::asio::io_context& ioc, const network::Host::Ptr& h, uint32_t i, uint8_t m, unsigned int flushPeriod)
+    : LogOutput(m,flushPeriod), ioContext(ioc), host(h), id(i) {
 
 
 }
@@ -26,7 +26,7 @@ LogToNetwork::~LogToNetwork() {
 
 void LogToNetwork::connect(void) {
 
-    if ( !conn ) conn = TcpConnection::newPtr( service );
+    if ( !conn ) conn = TcpConnection::newPtr( ioContext );
     
     if ( conn ) {
         if( !conn->socket().is_open() && host ) {

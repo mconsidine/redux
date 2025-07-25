@@ -40,7 +40,7 @@ void Worker::start( void ) {
         wip->reset();
     }
     
-    daemon.ioService.post( std::bind(&Worker::run, this) );
+    boost::asio::post( daemon.ioContext, std::bind(&Worker::run, this) );
 
     myInfo.touch();
     myInfo.active();
@@ -196,7 +196,7 @@ bool Worker::getWork( void ) {
                     if( wip->isRemote ) {
                         TcpConnection::Ptr logConn;
                         daemon.connect( daemon.myMaster.host->info, logConn );
-                        thisJob->logger.addNetwork( daemon.ioService, daemon.myMaster.host, thisJob->info.id, 0, 5 );   // TODO make flushPeriod a config setting.
+                        thisJob->logger.addNetwork( daemon.ioContext, daemon.myMaster.host, thisJob->info.id, 0, 5 );   // TODO make flushPeriod a config setting.
                     }
                     thisJob->init();
                     wip->jobID = thisJob->info.id;

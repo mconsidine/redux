@@ -61,13 +61,13 @@ namespace {
 }
 
 
-void redux::runThreadsAndWait(boost::asio::io_service& service, uint16_t nThreads) {
+void redux::runThreadsAndWait(boost::asio::io_context& ioc, uint16_t nThreads) {
     boost::thread_group pool;
     for(uint16_t t = 0; t < nThreads; ++t) {
-        pool.create_thread(boost::bind(&boost::asio::io_service::run, &service));
+        pool.create_thread(boost::bind(&boost::asio::io_context::run, &ioc));
     }
     pool.join_all();
-    service.reset();        // reset service so that next call will not fail
+    ioc.restart();        // reset service so that next call will not fail
 }
 
 
@@ -498,7 +498,7 @@ void Job::delThread( uint16_t n ) {
     
     lock_guard<mutex> lock(jobMutex);
     while( n-- ) {
-        ioService.post( [](){ throw Application::ThreadExit(); } );
+        boost::asio::post(ioContext,  [](){ throw Application::ThreadExit(); } );
     }
     
 }
@@ -525,7 +525,7 @@ void Job::threadLoop( void ) {
     while( true ) {
         try {
             boost::this_thread::interruption_point();
-            ioService.run();
+            ioContext.run();
         } catch( const Application::ThreadExit& e ) {
             break;
         } catch( job_error& ex ) {

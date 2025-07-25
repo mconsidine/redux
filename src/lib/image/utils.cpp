@@ -34,13 +34,13 @@ namespace {
     const int maxDistance = 64;
     const int maxDistance2 = maxDistance*maxDistance;
     const double deltasqr = 4;
-    const double beta = 2;
+    const double mybeta = 2;
     
     double distMap[2*maxDistance2+1];
     
     const double* getDistanceMap (void) {
         memset(distMap,0,(2*maxDistance2+1)*sizeof(double));
-        for(int i=0; i<=2*maxDistance2; ++i) distMap[i] = pow (i + deltasqr, -beta);
+        for(int i=0; i<=2*maxDistance2; ++i) distMap[i] = pow (i + deltasqr, -mybeta);
         return distMap;
     }
 
@@ -408,7 +408,7 @@ double redux::image::inv_dist_wght (float **a, size_t sizeY, size_t sizeX, size_
     for (int y = yl; y < yh; ++y)
         for (int x = xl; x < xh; ++x)
             if (a[y][x]) {
-                double c = pow ( (double) sqr (x - posX) + (double) sqr (y - posY) + deltasqr, -beta);
+                double c = pow ( (double) sqr (x - posX) + (double) sqr (y - posY) + deltasqr, -mybeta);
                 res += c * a[y][x];
                 weight += c;
             }

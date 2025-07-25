@@ -35,7 +35,7 @@ namespace redux {
             LogOutput::Ptr addLogger( Logger& );      // forward output to another Logger instance.
             LogOutput::Ptr addStream( std::ostream&, uint8_t m=0, unsigned int flushPeriod=1 );
             LogOutput::Ptr addFile( const std::string &filename, uint8_t m=0, bool replace=false, unsigned int flushPeriod=1 );
-            LogOutput::Ptr addNetwork( boost::asio::io_service&, const network::Host::Ptr, uint32_t id, uint8_t m=0, unsigned int flushPeriod=5 );
+            LogOutput::Ptr addNetwork( boost::asio::io_context&, const network::Host::Ptr, uint32_t id, uint8_t m=0, unsigned int flushPeriod=5 );
             void removeOutput( const std::string& );
             void removeAllOutputs( void );
             void addConnection( network::TcpConnection::Ptr conn, network::Host::Ptr host );

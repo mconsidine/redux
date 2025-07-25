@@ -57,9 +57,9 @@ namespace redux {
             std::string get_dirname(int wd);
 
             int fd_;
-            boost::asio::io_service service_;
+            boost::asio::io_context ioContext;
             boost::asio::posix::stream_descriptor stream_descriptor_;
-            std::unique_ptr<boost::asio::io_service::work> work_;
+            std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> workGuard;
             boost::array<char, 4096> read_buffer_;
             std::string pending_read_buffer_;
             std::mutex watch_descriptors_mutex_;

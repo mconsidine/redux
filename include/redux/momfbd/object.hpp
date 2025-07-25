@@ -108,9 +108,9 @@ namespace redux {
             bool checkData(bool verbose=false);
 
             void initObject(void);
-            void reInitialize(boost::asio::io_service&, redux::util::ProgressWatch& pw, bool reset=false);
-            void loadData(boost::asio::io_service&, redux::util::Array<PatchData::Ptr>&);
-            void loadInit(boost::asio::io_service&, redux::util::Array<PatchData::Ptr>&);
+            void reInitialize(boost::asio::io_context&, redux::util::ProgressWatch& pw, bool reset=false);
+            void loadData(boost::asio::io_context&, redux::util::Array<PatchData::Ptr>&);
+            void loadInit(boost::asio::io_context&, redux::util::Array<PatchData::Ptr>&);
             size_t getResultSize( void );
             void maybeInitializeStorage( void );          
             void getStorage( PatchData&, std::shared_ptr<ObjectData> );          
@@ -118,7 +118,7 @@ namespace redux {
             void writeAna(const redux::util::Array<PatchData::Ptr>&);
             void writeFits(const redux::util::Array<PatchData::Ptr>&);
             void writeMomfbd(const redux::util::Array<PatchData::Ptr>&);
-            void writeResults(boost::asio::io_service&, const redux::util::Array<PatchData::Ptr>&);
+            void writeResults(boost::asio::io_context&, const redux::util::Array<PatchData::Ptr>&);
             void writeResults(redux::util::Array<PatchData::Ptr>&);
             
             size_t estimateOutputSizeANA(void);

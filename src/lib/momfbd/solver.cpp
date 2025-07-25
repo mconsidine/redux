@@ -61,8 +61,8 @@ redux::momfbd::thread::TmpStorage* Solver::tmp( bool force ) {
     return TS;
 }
 
-Solver::Solver( MomfbdJob& j, boost::asio::io_service& s, uint16_t t ) : job(j), myInfo( network::Host::myInfo() ),
-    logger(j.logger), objects( j.getObjects() ), service(s), maxThreads(t), nFreeParameters(0), nTotalImages(0),
+Solver::Solver( MomfbdJob& j, boost::asio::io_context& ioc, uint16_t t ) : job(j), myInfo( network::Host::myInfo() ),
+    logger(j.logger), objects( j.getObjects() ), ioContext(ioc), maxThreads(t), nFreeParameters(0), nTotalImages(0),
     beta(nullptr), grad_beta(nullptr), search_dir(nullptr), tmp_beta(nullptr),
     regAlphaWeights(nullptr), patchSize2(0), pupilSize2(0), nTotalPixels(0), otfSize(0), otfSize2(0) {
 
@@ -168,7 +168,7 @@ void Solver::init( void ) {
     set<std::thread::id> initDone;
     while(true) {
         for( uint16_t i=0; i<2*maxThreads; ++i ) {
-            service.post([&](){
+            boost::asio::post(ioContext, [&](){
                 unique_lock<mutex> lock(mtx);
                 if( initDone.count(std::this_thread::get_id()) ) return;
                 tmp(true)->init();
@@ -183,7 +183,7 @@ void Solver::init( void ) {
 }
 
 
-void Solver::getMetric( boost::asio::io_service& service, uint8_t nThreads ) {
+void Solver::getMetric( boost::asio::io_context& ioContext, uint8_t nThreads ) {
 
     for( auto & object : objects ) {
         object->metric();
@@ -196,20 +196,20 @@ void Solver::reset( void ) {
     for( auto& object: objects ) {
         for( auto& ch: object->channels ) {
             for( auto& subimage: ch->subImages ) {
-                service.post( std::bind((void(SubImage::*)(void))&SubImage::resetPhi, subimage.get() ) );
+                boost::asio::post(ioContext, std::bind((void(SubImage::*)(void))&SubImage::resetPhi, subimage.get() ) );
             }
         }
-        service.post( std::bind(&Object::initPQ, object.get() ) );
-        service.post( std::bind(&Object::addAllPQ, object.get() ) );
+        boost::asio::post(ioContext, std::bind(&Object::initPQ, object.get() ) );
+        boost::asio::post(ioContext, std::bind(&Object::addAllPQ, object.get() ) );
     }
 }
 
 
-void Solver::dumpImages( boost::asio::io_service& service, string tag ) {
+void Solver::dumpImages( boost::asio::io_context& ioc, string tag ) {
     for( auto& object: objects ) {
         for( auto& ch: object->channels ) {
             for( auto& subimage: ch->subImages ) {
-                service.post( std::bind((void(SubImage::*)(string))&SubImage::dump, subimage.get(), tag ) );
+                boost::asio::post( ioc, std::bind((void(SubImage::*)(string))&SubImage::dump, subimage.get(), tag ) );
             }
         }
     }
@@ -246,9 +246,9 @@ void Solver::my_fdf( const gsl_vector* b, void* params, double* f, gsl_vector* d
 void Solver::my_precalc( const gsl_vector* b, const gsl_vector* b_grad ) {
     
     progWatch.set(3);
-    service.post( [this] { tmpPhiGrad.zero(); ++progWatch; } );
-    service.post ([this, b] { job.globalData->constraints.reverseAndAdd( b->data, alpha_offset.get(), alpha.get() ); ++progWatch; });
-    service.post ([this, b_grad] { job.globalData->constraints.reverse( b_grad->data, grad_alpha.get() ); ++progWatch; });
+    boost::asio::post(ioContext, [this] { tmpPhiGrad.zero(); ++progWatch; } );
+    boost::asio::post(ioContext, [this, b] { job.globalData->constraints.reverseAndAdd( b->data, alpha_offset.get(), alpha.get() ); ++progWatch; });
+    boost::asio::post(ioContext, [this, b_grad] { job.globalData->constraints.reverse( b_grad->data, grad_alpha.get() ); ++progWatch; });
     progWatch.wait();
 
     size_t nElements = pupilSize*pupilSize;
@@ -259,7 +259,7 @@ void Solver::my_precalc( const gsl_vector* b, const gsl_vector* b_grad ) {
         //if( o->weight > 0 ) {
             for( const auto& c: o->getChannels() ) {
                 for( const auto& im: c->getSubImages() ) {
-                    service.post ([this,&im, alphaPtr, phiPtr] {    // use a lambda to ensure these calls are sequential
+                    boost::asio::post(ioContext, [this,&im, alphaPtr, phiPtr] {    // use a lambda to ensure these calls are sequential
                         im->calcPhi( alphaPtr, phiPtr );
                         ++progWatch;
                     });
@@ -276,7 +276,7 @@ void Solver::my_precalc( const gsl_vector* b, const gsl_vector* b_grad ) {
         //if( o->weight > 0 ) {
             for( const auto& c: o->getChannels() ) {
                 for( const auto& im: c->getSubImages() ) {
-                    service.post ([this,&im, alphaPtr, phiPtr] {    // use a lambda to ensure these calls are sequential
+                    boost::asio::post(ioContext, [this,&im, alphaPtr, phiPtr] {    // use a lambda to ensure these calls are sequential
                         im->addToPhi( alphaPtr, phiPtr );
                         ++progWatch;
                     });
@@ -302,7 +302,7 @@ double Solver::metricAt( double step ) {
             double normalization = sqrt(1.0 / (o->pupil->area*otfSize2));
             for( const auto& c: o->getChannels() ) {
                 for( const auto& im RDX_UNUSED: c->getSubImages() ) {
-                    service.post( [this, &o, normalization, step, otfPtr, phiPtr, phiGradPtr] {
+                    boost::asio::post(ioContext,  [this, &o, normalization, step, otfPtr, phiPtr, phiGradPtr] {
                         const double* pupilPtr = o->pupil->get();
                         for( const auto& ind: o->pupil->pupilInOTF ) {
                             otfPtr[ind.second] = polar(pupilPtr[ind.first]*normalization, phiPtr[ind.first]+step*phiGradPtr[ind.first]);
@@ -588,10 +588,10 @@ void Solver::shiftAndInit( const T* a, bool doReset ) {
         o->progWatch.clear();
         o->imgShifted = static_cast<int>( doReset );  // force re-initialization if reset is passed
         o->progWatch.set( o->nImages() );
-        o->progWatch.setHandler( std::bind( &Object::reInitialize, o.get(), std::ref(service), std::ref(progWatch), doReset ) );
+        o->progWatch.setHandler( std::bind( &Object::reInitialize, o.get(), std::ref(ioContext), std::ref(progWatch), doReset ) );
         for( const auto& c: o->channels ) {
             for( const auto& im: c->getSubImages() ) {
-                service.post( [&,a](){
+                boost::asio::post(ioContext,  [&,a](){
                     o->imgShifted.fetch_or(im->adjustShifts(a));
                     ++o->progWatch;
                 } );
@@ -614,7 +614,7 @@ void Solver::alignWavefronts( void ) {
         for( const auto& c: o->getChannels() ) {
             shared_ptr<SubImage> refIm;
             for( const auto& im: c->getSubImages() ) {
-                service.post ([&im,refIm,this] {    // use a lambda to ensure these calls are sequential
+                boost::asio::post(ioContext, [&im,refIm,this] {    // use a lambda to ensure these calls are sequential
                     im->alignAgainst( refIm );
                     ++progWatch;
                 });
@@ -643,7 +643,7 @@ void Solver::applyAlpha( T* a ) {
     for( const auto& o: objects ) {
         for( const auto& c: o->getChannels() ) {
             for( const auto& im: c->getSubImages() ) {
-                service.post ([&im,a,this] {    // use a lambda to ensure these calls are sequential
+                boost::asio::post(ioContext, [&im,a,this] {    // use a lambda to ensure these calls are sequential
                     im->calcPhi( a );
                     im->calcPFOTF();
                     ++progWatch;
@@ -687,7 +687,7 @@ void Solver::applyConstraints( const double* a, double* b ) {
 
     progWatch.set( job.globalData->constraints.ns_cols.size() );
     for( auto& r: job.globalData->constraints.ns_cols ) {
-        service.post( [this,&r,&a,&b]() {
+        boost::asio::post(ioContext,  [this,&r,&a,&b]() {
             double tmp(0);
             for( auto& e: r.second ) tmp += e.second * a[e.first];
             b[r.first] += tmp;
@@ -703,7 +703,7 @@ void Solver::reverseConstraints( const double* b, double* a ) {
 
     progWatch.set( job.globalData->constraints.ns_rows.size() );
     for( auto& r: job.globalData->constraints.ns_rows ) {
-        service.post([this,&r,&a,&b]() {
+        boost::asio::post(ioContext, [this,&r,&a,&b]() {
             double tmpD(0);
             for( auto& e: r.second ) tmpD += e.second * b[e.first];
             a[r.first] += tmpD;
@@ -739,7 +739,7 @@ void Solver::initImages( double* a ) {
     for( const auto& o: job.objects ) {
         for( const shared_ptr<Channel>& c: o->channels ) {
             for( const shared_ptr<SubImage>& im: c->getSubImages() ) {
-                service.post( [&,a](){
+                boost::asio::post(ioContext,  [&,a](){
                     im->adjustShifts( a );
                     im->initialize(true);
                     ++progWatch;
@@ -782,7 +782,7 @@ double Solver::metric(void) {
                     size_t endIndex = begIndex + nMaxImages;
                     if( endIndex > nImgs ) endIndex = nImgs;
                     o->progWatch.increaseTarget();
-                    service.post( [o,c,begIndex,endIndex,this] {
+                    boost::asio::post(ioContext,  [o,c,begIndex,endIndex,this] {
                         const vector< shared_ptr<SubImage> >& imgs = c->getSubImages();
                         double* tmpD = tmp()->D.get();
                         complex_t* tmpC = tmp()->C.get();
@@ -834,7 +834,7 @@ void Solver::calcPQ(void) {
                 size_t endIndex = begIndex + nMaxImages;
                 if( endIndex > nImgs ) endIndex = nImgs;
                 o->progWatch.increaseTarget();
-                service.post( [o,c,begIndex,endIndex,this] {
+                boost::asio::post(ioContext,  [o,c,begIndex,endIndex,this] {
                     const vector< shared_ptr<SubImage> >& imgs = c->getSubImages();
                     double* tmpD = tmp()->D.get();
                     complex_t* tmpC = tmp()->C.get();
@@ -874,7 +874,7 @@ void Solver::gradient(void) {
         //if( o->weight > 0 ) {
             for( const shared_ptr<Channel>& c: o->getChannels() ) {
                 for( const shared_ptr<SubImage>& im: c->getSubImages() ) {
-                    service.post ([this, eM, o, im, gAlphaPtr] {    // use a lambda to ensure these calls are sequential
+                    boost::asio::post(ioContext, [this, eM, o, im, gAlphaPtr] {    // use a lambda to ensure these calls are sequential
                         im->calcVogelWeight( o->PQ.get(), o->PS.get(), o->QS.get() );
                         for ( uint16_t m=0; m<nModes; ++m ) {
                             if( eM[m] ) {
@@ -922,12 +922,12 @@ void Solver::dump( string tag ) {
 
     progWatch.set( objects.size()+1 );
     for( auto & o : objects ) {
-        service.post( [this,tag, &o](){
+        boost::asio::post(ioContext, [this,tag, &o](){
             o->dump(tag);
             ++progWatch;
         });
     }
-    service.post( [this,tag](){
+    boost::asio::post(ioContext,  [this,tag](){
         Ana::write (tag + "_window.f0", window);
         Ana::write (tag + "_noisewindow.f0", noiseWindow);
 

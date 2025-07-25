@@ -18,14 +18,14 @@ namespace redux {
         class LogToNetwork : public LogOutput {
 
         public:
-            LogToNetwork( boost::asio::io_service&, const network::Host::Ptr&, uint32_t id, uint8_t m=LOG_MASK_ANY, unsigned int flushPeriod=5);
+            LogToNetwork( boost::asio::io_context&, const network::Host::Ptr&, uint32_t id, uint8_t m=LOG_MASK_ANY, unsigned int flushPeriod=5);
             ~LogToNetwork();
 
             void connect(void);
             void flushBuffer( void );
 
         private:
-            boost::asio::io_service& service;
+            boost::asio::io_context& ioContext;
             network::Host::Ptr host;
             network::TcpConnection::Ptr conn;
             uint32_t id;

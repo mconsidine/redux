@@ -225,8 +225,8 @@ int main( int argc, char *argv[] ) {
         
         Logger logger( vm );
         
-        boost::asio::io_service ioservice;
-        auto conn = TcpConnection::newPtr(ioservice);
+        boost::asio::io_context ioContext;
+        auto conn = TcpConnection::newPtr(ioContext);
         conn->connect( vm["master"].as<string>(), vm["port"].as<string>() );
 
         if( conn->socket().is_open() ) {

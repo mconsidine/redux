@@ -67,7 +67,7 @@ namespace redux {
             
             void maybeInitializeStorage( void );          
             void getStorage( PatchData& );          
-            void loadInit( boost::asio::io_service& service, redux::util::Array<PatchData::Ptr>& patches );
+            void loadInit( boost::asio::io_context& ioContext, redux::util::Array<PatchData::Ptr>& patches );
 
             size_t nModes;
             size_t nWaveFronts;
