@@ -118,6 +118,7 @@ On the global level, all the channel, and object, keywords above can be specifie
     <tr><td>EPS                     <td>float                   <td>Precision/step length for finite differences calculations   <td>1E-10
     <tr><td>FAST_QR                 <td>bool                    <td>Use fast QR decomposition (always enabled in redux)        <td>
     <tr><td>FILE_TYPE               <td>string                  <td>Output file format (ANA/FITS/MOMFBD)             <td>FITS (ANA for calibration runs)
+    <tr><td>FILTER_CUTOFF           <td>float                   <td>Adjust the cutoff in the Wiener/Scharmer filtering of the restored patches.<td>0.9
     <tr><td>FIT_PLANE               <td>bool                    <td>Subtract a fitted plane from the patch before processing.<br>This can help if there is an intensity gradient in the patch.                            <td>
     <tr><td>FLATFIELD               <td>bool                    <td>Save calibrated images only (i.e. no processing)            <td>
     <tr><td>FPMETHOD                <td>string                  <td>Method to use for filling in bad pixels ("median"/"invdistweight"/"horint")<td>"invdistweight"

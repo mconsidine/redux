@@ -221,6 +221,7 @@ namespace redux {
             uint8_t normType;
             int16_t apodizationSize;
             float badPixelThreshold;
+            float filterCutoff;             //!< Adjust the cutoff in the Wiener/Scharmer filtering of the restored patches (default=0.9, 1.0=diffraction limit).
             float FTOL;
             float EPS;
             float reg_alpha;

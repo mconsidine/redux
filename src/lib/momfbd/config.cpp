@@ -631,7 +631,7 @@ GlobalCfg::GlobalCfg() : runFlags( 0), modeBasis(ZERNIKE), klMinMode( 2), klMaxM
     telescopeD(0), telescopeCO(0), minIterations(5), maxIterations(500), targetIterations(3),
     fillpixMethod(FPM_INVDISTWEIGHT), gradientMethod(GM_DIFF), getstepMethod(GSM_BFGS_inv),
     normType(NORM_OBJ_MAX_MEAN), apodizationSize(-1),
-    badPixelThreshold(1E-5), FTOL(1E-3), EPS(1E-10), reg_alpha(0), graddiff_step(1E-2), trace(false),
+    badPixelThreshold(1E-5), filterCutoff(0.9), FTOL(1E-3), EPS(1E-10), reg_alpha(0), graddiff_step(1E-2), trace(false),
     outputFileType(FT_NONE), outputDataType(DT_I16T), sequenceNumber(0),
     observationTime(""), observationDate("N/A"), tmpDataDir("./data") {
 
@@ -754,6 +754,7 @@ void GlobalCfg::parseProperties( bpt::ptree& tree, Logger& logger, const Channel
         }
     }
     badPixelThreshold = getValue( tree, "BADPIXEL", defaults.badPixelThreshold );
+    filterCutoff = getValue( tree, "FILTER_CUTOFF", defaults.filterCutoff );
     FTOL = getValue( tree, "FTOL", defaults.FTOL );
     EPS = getValue( tree, "EPS", defaults.EPS );
     reg_alpha = getValue( tree, "REG_ALPHA", defaults.reg_alpha );
@@ -861,6 +862,7 @@ void GlobalCfg::getProperties( bpt::ptree& tree, const ChannelCfg& def, bool sho
     if( showAll || gradientMethod != defaults.gradientMethod ) tree.put( "GRADIENT", gmTags[gradientMethod%3] );
     if( showAll || getstepMethod != defaults.getstepMethod ) tree.put( "GETSTEP", gsmTags[getstepMethod%5] );
     if( showAll || badPixelThreshold != defaults.badPixelThreshold ) tree.put( "BADPIXEL", badPixelThreshold );
+    if( showAll || filterCutoff != defaults.filterCutoff ) tree.put( "FILTER_CUTOFF", filterCutoff );
     if( showAll || FTOL != defaults.FTOL ) tree.put( "FTOL", FTOL );
     if( showAll || EPS != defaults.EPS ) tree.put( "EPS", EPS );
     if( showAll || reg_alpha != defaults.reg_alpha ) tree.put( "REG_ALPHA", reg_alpha );
@@ -884,7 +886,7 @@ void GlobalCfg::getProperties( bpt::ptree& tree, const ChannelCfg& def, bool sho
 
 uint64_t GlobalCfg::size( void ) const {
     // static sizes (PoD types)
-    uint64_t ssz = sizeof( badPixelThreshold ) + sizeof( EPS ) + sizeof( fillpixMethod ) + sizeof( FTOL )
+    uint64_t ssz = sizeof( badPixelThreshold ) + sizeof( filterCutoff ) + sizeof( EPS ) + sizeof( fillpixMethod ) + sizeof( FTOL )
                  + sizeof( normType ) + sizeof( apodizationSize )
                  + sizeof( getstepMethod ) + sizeof( graddiff_step ) + sizeof( gradientMethod ) + sizeof( klCutoff )
                  + sizeof( klMaxMode ) + sizeof( klMinMode ) + sizeof( maxIterations ) + sizeof( minIterations )
@@ -907,6 +909,7 @@ uint64_t GlobalCfg::pack( char* ptr ) const {
     uint64_t count = ObjectCfg::pack( ptr );
     // scalar values
     count += pack( ptr+count, badPixelThreshold );
+    count += pack( ptr+count, filterCutoff );
     count += pack( ptr+count, EPS );
     count += pack( ptr+count, fillpixMethod );
     count += pack( ptr+count, FTOL );
@@ -951,6 +954,7 @@ uint64_t GlobalCfg::unpack( const char* ptr, bool swap_endian ) {
     uint64_t count = ObjectCfg::unpack( ptr, swap_endian );
     // scalar values
     count += unpack( ptr+count, badPixelThreshold, swap_endian );
+    count += unpack( ptr+count, filterCutoff, swap_endian );
     count += unpack( ptr+count, EPS, swap_endian );
     count += unpack( ptr+count, fillpixMethod );//b
     count += unpack( ptr+count, FTOL, swap_endian );
@@ -1018,6 +1022,7 @@ bool GlobalCfg::operator==( const GlobalCfg& rhs ) const {
            ( normType == rhs.normType ) &&
            ( apodizationSize == rhs.apodizationSize ) &&
            ( badPixelThreshold == rhs.badPixelThreshold ) &&
+           ( filterCutoff == rhs.filterCutoff ) &&
            ( FTOL == rhs.FTOL ) &&
            ( EPS == rhs.EPS ) &&
            ( reg_alpha == rhs.reg_alpha ) &&

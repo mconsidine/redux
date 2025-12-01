@@ -322,8 +322,8 @@ void Object::restorePatch( ObjectData& od, const vector<uint32_t>& wf ) {
     avgObjFT.safeDivide( tmpD );     // TBD: non-zero cutoff by default? based on reg_gamma ?
     
     if (!(myJob.runFlags&RF_NO_FILTER)) {
-        LOG_DEBUG << boost::format("Object %d: Applying Scharmer filter with frequency-cutoff = %g and noise-variance = %g") % ID % (0.9*frequencyCutoff) % avgNoiseVariance << ende;
-        ScharmerFilter( aoPtr, dPtr, otfSize, otfSize, avgNoiseVariance, 0.90 * frequencyCutoff);
+        LOG_DEBUG << boost::format("Object %d: Applying Scharmer filter with cutoff = %g, diffraction-limit frequency = %g, and noise-variance = %g") % ID % myJob.filterCutoff % frequencyCutoff % avgNoiseVariance << ende;
+        ScharmerFilter( aoPtr, dPtr, otfSize, otfSize, avgNoiseVariance, myJob.filterCutoff * frequencyCutoff);
     }
 
     od.img.resize( otfSize, otfSize );
